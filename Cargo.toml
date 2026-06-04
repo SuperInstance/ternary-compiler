@@ -1,0 +1,11 @@
+[package]
+name = "ternary-compiler"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Compiles ternary strategy descriptions into optimized lookup tables"
+repository = "https://github.com/SuperInstance/ternary-compiler"
+keywords = ["ternary", "compiler", "strategy", "lookup-table"]
+categories = ["algorithms", "data-structures"]
+
+[dev-dependencies]
