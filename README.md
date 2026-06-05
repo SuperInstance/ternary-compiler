@@ -1,96 +1,81 @@
 # ternary-compiler
 
-Compiles ternary strategy descriptions into optimized lookup tables — the **compiler** for the ternary runtime.
+**Ternary expression compiler: parse, optimize, and evaluate ternary logic expressions**
 
-## Compilation Pipeline
+[![ternary](https://img.shields.io/badge/ecosystem-ternary-blue)](https://github.com/orgs/SuperInstance/repositories?q=ternary)
+[![tests](https://img.shields.io/badge/tests-8-green)]()
 
-```text
-Strategy text ──parse──▶ StrategyIR ──optimize──▶ ──compile──▶ CompiledPolicy
-                                                           ↕
-                                                 Profiler / Disassembler
+## Overview
+
+Ternary expression compiler: parse, optimize, and evaluate ternary logic expressions.
+
+## Architecture
+
+- **`Compiler`** — core data structure
+- **`TV`** — state enumeration
+- **`Expr`** — state enumeration
+- **`Op`** — state enumeration
+
+### Key Functions
+
+- `from_i8()`
+- `to_i8()`
+- `eval()`
+- `optimize()`
+- `free_vars()`
+- `new()`
+- `compile()`
+- `execute()`
+
+## Why Ternary?
+
+The balanced ternary system {-1, 0, +1} (also known as Z₃) is the mathematically optimal discrete encoding:
+- **More expressive than binary**: three states capture positive, neutral, and negative
+- **Natural for decisions**: accept/reject/abstain, buy/hold/sell, agree/disagree/neutral
+- **Self-balancing**: the 0 state acts as a universal screen, preventing pathological lock-in
+- **Z₃ cyclic dynamics**: rock-paper-scissors is the only natural coordination mechanism
+
+## Stats
+
+| Metric | Value |
+|--------|-------|
+| Lines of Rust | 247 |
+| Test count | 8 |
+| Public types | 4 |
+| Public functions | 8 |
+
+## Ecosystem
+
+This crate is part of the **[SuperInstance Ternary Fleet](https://github.com/orgs/SuperInstance/repositories?q=ternary)**:
+
+- **[ternary-core](https://github.com/SuperInstance/ternary-core)** — shared traits and Z₃ arithmetic
+- **[ternary-grid](https://github.com/SuperInstance/ternary-grid)** — spatial grid with {-1, 0, +1} cells
+- **[ternary-graph](https://github.com/SuperInstance/ternary-graph)** — ternary-weighted graph algorithms
+- **[ternary-automata](https://github.com/SuperInstance/ternary-automata)** — three-state cellular automata
+- **[ternary-compiler](https://github.com/SuperInstance/ternary-compiler)** — expression compiler and optimizer
+
+200+ crates. 4,300+ tests. One pattern.
+
+## Research Context
+
+The ternary approach connects to several active research areas:
+- **Ternary Neural Networks** (TNNs): weights constrained to {-1, 0, +1} for efficient inference
+- **Huawei's ternary chip**: 7nm ternary silicon with 60% less power consumption
+- **Active inference**: free energy minimization naturally maps to ternary action selection
+- **Cyclic dominance**: RPS dynamics maintain biodiversity in spatial ecology
+- **Z₃ group theory**: the only algebraic group on three elements is cyclic addition mod 3
+
+## Usage
+
+```toml
+[dependencies]
+ternary-compiler = "0.1.0"
 ```
-
-### Stage 1: StrategyIR
-
-`StrategyIR` is the intermediate representation. A strategy is a sequence of **trits** (ternary digits: `-`, `0`, `+`) with per-position metadata:
-
-- **Trit value**: Negative (-1), Zero (0), or Positive (+1)
-- **Stability flag**: whether the position is known-stable
-- **Label**: optional human-readable name
 
 ```rust
-use ternary_compiler::{StrategyIR, Trit};
-
-let ir = StrategyIR::parse("my-strategy", "-0+0-+");
+use ternary_compiler;
 ```
-
-### Stage 2: Optimizer
-
-The optimizer runs passes on the action table:
-
-- **Dead-code elimination**: Stable neutral (zero) positions carry no information → `Eliminated`
-- **Constant folding**: A neutral position surrounded by identical non-neutral actions is folded to match its neighbors
-
-```rust
-use ternary_compiler::Optimizer;
-
-let mut actions = vec![Action::Neutral, Action::Commit, Action::Neutral];
-let stable = vec![true, false, false];
-Optimizer::new().optimize(&mut actions, &stable);
-// actions[0] → Eliminated (dead code: stable + neutral)
-```
-
-### Stage 3: CompiledPolicy
-
-The `CompiledPolicy` is an optimized lookup table: **index → action in O(1)**.
-
-```rust
-use ternary_compiler::Compiler;
-
-let policy = Compiler::new().compile(&ir);
-let action = policy.action(2); // O(1) lookup
-```
-
-### Stage 4: Profiler
-
-Profile a compiled policy against environments to identify hot/cold paths:
-
-```rust
-use ternary_compiler::{Profiler, Trit};
-
-let mut profiler = Profiler::new(&policy);
-profiler.evaluate(&policy, &vec![Trit::Positive, Trit::Negative, Trit::Zero]);
-let report = profiler.report(&policy);
-println!("Hottest: {:?}", report.hottest_path());
-```
-
-### Stage 5: Disassembler
-
-Convert a `CompiledPolicy` back to human-readable form:
-
-```rust
-use ternary_compiler::Disassembler;
-
-let text = Disassembler::to_text(&policy);     // "+-0x"
-let detailed = Disassembler::to_detailed(&policy); // multi-line report
-let ir = Disassembler::to_ir(&policy);          // back to StrategyIR
-```
-
-## Design
-
-- **Pure Rust**, no unsafe code, no external dependencies
-- O(1) compiled lookup tables
-- Configurable optimization passes
-- Round-trippable: compile → disassemble → re-compile
 
 ## License
 
 MIT
-
-## See Also
-- **ternary-compiler-v2** — related
-- **ternary-compiler-optimizer** — related
-- **ternary-grammar** — related
-- **ternary-language** — related
-- **ternary-logic** — related
-
