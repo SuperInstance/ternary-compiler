@@ -86,3 +86,11 @@ let ir = Disassembler::to_ir(&policy);          // back to StrategyIR
 ## License
 
 MIT
+
+## See Also
+- **ternary-compiler-v2** — related
+- **ternary-compiler-optimizer** — related
+- **ternary-grammar** — related
+- **ternary-language** — related
+- **ternary-logic** — related
+
