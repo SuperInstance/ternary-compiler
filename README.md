@@ -1,81 +1,96 @@
 # ternary-compiler
 
-**Ternary expression compiler: parse, optimize, and evaluate ternary logic expressions**
+**Parse, compile, optimize, and profile ternary logic expressions. A full compiler pipeline from strategy IR to optimized bytecode.**
 
-[![ternary](https://img.shields.io/badge/ecosystem-ternary-blue)](https://github.com/orgs/SuperInstance/repositories?q=ternary)
-[![tests](https://img.shields.io/badge/tests-8-green)]()
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-## Overview
+## Background
 
-Ternary expression compiler: parse, optimize, and evaluate ternary logic expressions.
+Ternary logic — three-valued logic with states {−1, 0, +1} — generalizes Boolean logic with a third "unknown" or "neutral" state. Introduced independently by Łukasiewicz (1920) and Kleene (1938), it appears naturally in database NULL semantics, hardware don't-care states, and multi-agent voting systems.
 
-## Architecture
+`ternary-compiler` provides a complete compilation pipeline for ternary expressions and strategies:
 
-- **`Compiler`** — core data structure
-- **`TV`** — state enumeration
-- **`Expr`** — state enumeration
-- **`Op`** — state enumeration
+1. **Expression-level**: An AST with `And`, `Or`, `Not`, `Min`, `Max`, `If` nodes, evaluated via tree-walking or compiled to a stack-machine bytecode.
+2. **Strategy-level**: A `StrategyIR` representation of named ternary vectors, compiled through optimization passes into `CompiledPolicy` lookup tables.
+3. **Profiler**: Statistical analysis of which policy positions are hot/cold under various environments.
 
-### Key Functions
+## How It Works
 
-- `from_i8()`
-- `to_i8()`
-- `eval()`
-- `optimize()`
-- `free_vars()`
-- `new()`
-- `compile()`
-- `execute()`
+### Expression Compiler
 
-## Why Ternary?
+The `Expr` AST supports:
+- `Const(TV)`, `Var(String)` — Literals and variables
+- `Not(e)` — Negation (sign flip)
+- `And(a, b)`, `Or(a, b)` — Min/max semantics (Łukasiewicz conjunction/disjunction)
+- `Min(a, b)`, `Max(a, b)` — Direct min/max
+- `If(cond, then, else)` — Conditional (positive guard)
 
-The balanced ternary system {-1, 0, +1} (also known as Z₃) is the mathematically optimal discrete encoding:
-- **More expressive than binary**: three states capture positive, neutral, and negative
-- **Natural for decisions**: accept/reject/abstain, buy/hold/sell, agree/disagree/neutral
-- **Self-balancing**: the 0 state acts as a universal screen, preventing pathological lock-in
-- **Z₃ cyclic dynamics**: rock-paper-scissors is the only natural coordination mechanism
+**Constant folding** collapses expressions like `And(Const(+1), Const(0))` → `Const(0)` at compile time.
 
-## Stats
+**Bytecode compilation** produces a stack-machine program:
+- `PushConst(i8)`, `Load(slot)`, `Neg`, `Min`, `Max`, `JumpIfNotPlus(addr)`
+- `Compiler::execute()` runs bytecode against a slot array.
 
-| Metric | Value |
-|--------|-------|
-| Lines of Rust | 247 |
-| Test count | 8 |
-| Public types | 4 |
-| Public functions | 8 |
+### Strategy IR → Compiled Policy
 
-## Ecosystem
+The compilation pipeline:
 
-This crate is part of the **[SuperInstance Ternary Fleet](https://github.com/orgs/SuperInstance/repositories?q=ternary)**:
-
-- **[ternary-core](https://github.com/SuperInstance/ternary-core)** — shared traits and Z₃ arithmetic
-- **[ternary-grid](https://github.com/SuperInstance/ternary-grid)** — spatial grid with {-1, 0, +1} cells
-- **[ternary-graph](https://github.com/SuperInstance/ternary-graph)** — ternary-weighted graph algorithms
-- **[ternary-automata](https://github.com/SuperInstance/ternary-automata)** — three-state cellular automata
-- **[ternary-compiler](https://github.com/SuperInstance/ternary-compiler)** — expression compiler and optimizer
-
-200+ crates. 4,300+ tests. One pattern.
-
-## Research Context
-
-The ternary approach connects to several active research areas:
-- **Ternary Neural Networks** (TNNs): weights constrained to {-1, 0, +1} for efficient inference
-- **Huawei's ternary chip**: 7nm ternary silicon with 60% less power consumption
-- **Active inference**: free energy minimization naturally maps to ternary action selection
-- **Cyclic dominance**: RPS dynamics maintain biodiversity in spatial ecology
-- **Z₃ group theory**: the only algebraic group on three elements is cyclic addition mod 3
-
-## Usage
-
-```toml
-[dependencies]
-ternary-compiler = "0.1.0"
+```
+StrategyIR (trits + metadata + stability flags)
+    ↓ Compiler::compile_raw()
+    ↓ Optimizer (dead-code elimination + constant folding)
+    ↓
+CompiledPolicy (O(1) lookup table)
 ```
 
-```rust
-use ternary_compiler;
-```
+- **`Trit`** — Canonical balanced-ternary digit with `from_char`/`as_char` for text I/O (`-`, `0`, `+`).
+- **`StrategyIR`** — Named sequence of trits with per-position stability flags and labels. Parses from text strings like `"-0+0-+"`.
+- **`Optimizer`** — Two passes: dead-code elimination (stable + neutral → eliminated) and constant folding (neutral surrounded by identical actions → fold).
+- **`CompiledPolicy`** — Optimized lookup table with O(1) index → action lookup. Tracks elimination count and compression ratio.
+- **`Action`** — Commit (+1), Oppose (−1), Neutral (0), Eliminated (optimized away).
 
-## License
+### Profiler
 
-MIT
+Evaluates a `CompiledPolicy` against environments (trit vectors) and reports:
+- Per-position hit counts (hot/cold paths)
+- Hottest and coldest active positions
+- Total evaluation counts
+
+### Disassembler
+
+Converts `CompiledPolicy` back to:
+- **Text**: `"+-0x"` (compact)
+- **Detailed report**: Multi-line with indices, actions, trits
+- **StrategyIR**: Lossy reverse (eliminated → zero)
+
+## Experimental Results
+
+The test suite verifies:
+- **Expression evaluation**: `Not(+1) = −1`, `And(+1, −1) = −1`, `Or(+1, −1) = +1`.
+- **Constant folding**: `And(Const(+1), Const(0))` → `Const(0)`.
+- **If-semantics**: `If(+1, a, b) = a`, `If(0, a, b) = b`.
+- **Bytecode execution**: `Max(Const(−1), Const(+1))` compiles and executes to `+1`.
+- **Optimizer passes**: Dead-code eliminates stable neutrals; constant folding collapses surrounded neutrals.
+- **Profiler**: Correctly identifies hot paths (position 0 with 10 hits) and cold paths.
+- **Disassembler**: Text round-trip preserves actions; detailed output includes compression ratio.
+
+## Impact
+
+This crate is the *compiler infrastructure* of the ternary fleet. It transforms high-level strategy descriptions into optimized, O(1)-lookup decision tables. The profiling subsystem enables data-driven optimization: identify which strategy positions matter under real workloads and eliminate the rest.
+
+## Use Cases
+
+1. **Strategy Compilation** — Define a ternary strategy as a text string (`"-0+0-+0"`), compile it through dead-code elimination and constant folding, and get an optimized lookup table for real-time evaluation.
+2. **Ternary Logic Circuits** — Use the expression compiler to define, optimize, and execute three-valued logic circuits. Constant folding removes redundant gates at compile time.
+3. **Policy Profiling** — Feed real-world environments through the profiler to identify which policy positions are critical and which can be eliminated, reducing memory and compute.
+4. **Reverse Engineering** — The disassembler converts compiled policies back to human-readable form for auditing and debugging.
+
+## Open Questions
+
+1. **Register allocation** — The current bytecode uses a simple hash-based slot assignment. A proper register allocator would reduce stack pressure and enable better optimization.
+2. **Conditional compilation** — The `If` node currently compiles to a simplified form. Full conditional jumps with back-patching would enable arbitrary ternary control flow.
+3. **Multi-strategy linking** — Can multiple `CompiledPolicy` instances be linked together for hierarchical strategy evaluation?
+
+## Connection to Oxide Stack
+
+`ternary-compiler` sits at the center of the ternary fleet, bridging high-level strategy definitions (from `ternary-core` types) with low-level execution (feeding into `ternary-compiler-optimizer` for further optimization). The `StrategyIR` format serves as the interchange between strategy authoring tools and the runtime. The profiler and disassembler form the observability layer, enabling users to understand what their strategies are doing and why.
