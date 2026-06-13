@@ -74,6 +74,19 @@ This is the original ternary logic backend in the **SuperInstance** ecosystem. I
 - Knuth, Donald E. *The Art of Computer Programming, Vol. 2*, §4.1 — balanced ternary notation.
 - Cohn, P. M. *Universal Algebra*, 1965 — algebraic structures on three-element lattices.
 
+
+
+## Complexity Summary
+
+| Operation | Time | Space |
+|---|---|---|
+| Trit conversion | O(1) | O(1) |
+| compile(source) | O(n) | O(n) |
+| Instruction dispatch | O(1) per instruction | O(1) |
+| Symbol table lookup | O(1) average | O(s) for s symbols |
+
+The compiler produces at most O(n) instructions for n source tokens. Symbol table uses HashMap for O(1) average lookup.
+
 ## License
 
 MIT
